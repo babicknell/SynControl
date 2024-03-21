@@ -22,7 +22,7 @@ Example:
 To run the teacher-student task with Bayesian control and learning, 
 and continuous error feedback, navigate to 'scripts' and use
 
-> ./run_task1.py --model Bayes --ftype cts --seed 0
+> python run_task1.py --model Bayes --ftype cts --seed 0
 
 Core model parameters can be edited in syn_control/parameters.py and others 
 passed as arguments at the command line.

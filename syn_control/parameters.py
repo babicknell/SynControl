@@ -46,7 +46,7 @@ def init_params():
     params = Params(
         num_syns=1000,
         M=1,
-        T=5e3,
+        T=5e5,
         dt=0.1,
         tau_I=5.,
         tau_r=50.,

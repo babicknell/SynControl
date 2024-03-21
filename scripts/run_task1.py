@@ -6,7 +6,7 @@ feedback ('cts' or 'spike'), and a random seed. Other customisable options can
 be found below and in ../SynControl/parameters.py
 
 Usage:
-    ./run_task1.py --argname1 arg1 --argname2 arg2 ...
+    python ./run_task1.py --argname1 arg1 --argname2 arg2 ...
 
 """
 
@@ -43,7 +43,7 @@ parser.add_argument('--save', type=bool,
                     help='Save results flag')
 parser.add_argument('--save_steps', type=int, default=1,
                     help='Time increments for saving weights')
-parser.add_argument('--path', type=str, default='../outputs/task1/',
+parser.add_argument('--path', type=str, default='../outputs/',
                     help='Save path')
 
 args = parser.parse_args()

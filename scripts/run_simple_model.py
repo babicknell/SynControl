@@ -4,7 +4,7 @@ Simulate fast and slow synaptic plasticity in a toy linear regression model,
 save results to outputs directory.
 
 Usage:
-    ./run_simple_model.py --argname1 arg1 --argname2 arg2 ...
+    python ./run_simple_model.py --argname1 arg1 --argname2 arg2 ...
 
 """
 
@@ -36,7 +36,7 @@ parser.add_argument('--save', type=bool, default=False,
                     help='Save results flag')
 parser.add_argument('--save_steps', type=int, default=1,
                     help='Time increments for saving weights')
-parser.add_argument('--path', type=str, default='../outputs/simple_model/',
+parser.add_argument('--path', type=str, default='../outputs/',
                     help='Save path')
 parser.add_argument('--plot', type=bool, default=True,
                     help='plot flag')
