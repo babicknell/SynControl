@@ -1,0 +1,6 @@
+setup.py
+syn_control/__init__.py
+syn_control.egg-info/PKG-INFO
+syn_control.egg-info/SOURCES.txt
+syn_control.egg-info/dependency_links.txt
+syn_control.egg-info/top_level.txt
