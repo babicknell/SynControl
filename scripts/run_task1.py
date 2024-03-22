@@ -164,11 +164,11 @@ def run(p):
     results = {'params': p, 'W_err': w_slow_rmse, 'W_slow': w_slow_traj,
                'W_tar': w_tar_traj, 'dW': dw_traj, 'input_rates': task.rates,
                'Y_rmse': y_rmse}
-    return results
+    return results, weights
 
 
 if __name__ == '__main__':
-    results = run(p)
+    results, weights = run(p)
     if p.save:
         filename = (f'task1_{p.model}_{p.ftype}_{p.id}_seed{p.seed}')
         pickle.dump(results, open(f'{p.path}{filename}', 'wb'))

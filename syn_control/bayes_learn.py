@@ -217,7 +217,7 @@ class BayesLearnerApprox:
         self.X = [np.zeros((p.M, p.num_syns)) for _ in range(int(p.lag/p.dt)+1)]
         self.xr = np.zeros(p.num_syns)
 
-    def update(self, x, f):
+    def update(self, x, f, u=0.):
         """
         Integrates input and feedback, then updates synaptic weights.
 
