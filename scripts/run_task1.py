@@ -14,6 +14,9 @@ import argparse
 import numpy as np
 import pickle
 
+from matplotlib import pyplot as plt
+
+
 from syn_control import bayes_learn
 from syn_control import tasks
 from syn_control import parameters
@@ -39,6 +42,9 @@ parser.add_argument('--sw_flag', type=int, default=1,
                     help='Plastic slow weights')
 parser.add_argument('--fw_flag', type=int, default=1,
                     help='Plastic fast weights')
+parser.add_argument('--plus_minus', type=bool, default=False,
+                    help='Feedback about +ve and -ve errors'
+                         '(only relevant for M>1 and spiking feedback)')
 parser.add_argument('--save', type=bool,
                     help='Save results flag')
 parser.add_argument('--save_steps', type=int, default=1,
@@ -94,7 +100,7 @@ def run(p):
     elif p.ftype == 'spike':
 
         def fb(delta):
-            return shared.feedbackS(delta, p, binom)
+            return shared.feedbackS(delta, p, binom, pm=p.plus_minus)
 
         if p.model == 'Bayes':
             weights = [bayes_learn.BayesLearnerS(p, m[k], s2[k]) for k in
@@ -102,6 +108,9 @@ def run(p):
         else:
             weights = [bayes_learn.ClasLearnerS(p, m[k]) for k in
                        range(p.M)]
+        if p.plus_minus:
+            for weight in weights[p.M//2:]:
+                weight.p.rho *= -1
 
         if p.pop_control == 'global':
             gloErr = bayes_learn.ErrorEstS(p)
@@ -125,6 +134,7 @@ def run(p):
     y = np.zeros(1)  # actual output
     f = np.zeros(p.M)  # feedback variable
     F = [np.zeros(p.M) for _ in range(int(p.lag/p.dt)+1)]  # buffer for delay
+
     for k in range(1, p.n_steps + 1):
         x_k = binom(1, task.rates*p.dt)
         noise = shared.noise(p, xi)
@@ -164,11 +174,11 @@ def run(p):
     results = {'params': p, 'W_err': w_slow_rmse, 'W_slow': w_slow_traj,
                'W_tar': w_tar_traj, 'dW': dw_traj, 'input_rates': task.rates,
                'Y_rmse': y_rmse}
-    return results, weights
+    return results
 
 
 if __name__ == '__main__':
-    results, weights = run(p)
+    results = run(p)
     if p.save:
         filename = (f'task1_{p.model}_{p.ftype}_{p.id}_seed{p.seed}')
         pickle.dump(results, open(f'{p.path}{filename}', 'wb'))
