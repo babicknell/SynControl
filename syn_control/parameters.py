@@ -46,12 +46,12 @@ def init_params():
     params = Params(
         num_syns=1000,
         M=1,
-        T=5e5,
+        T=5e3,
         dt=0.1,
         tau_I=5.,
         tau_r=50.,
         tau_y=100.,
-        tau_w=1e6,  # (ms)
+        tau_w=1e7,  # (ms)
         alpha_Ir=50.,
         nu_bar=1e-3*25.,
         m_prior=0.01,
@@ -60,8 +60,8 @@ def init_params():
         sig2_r=0.05,
         sig2_y=0.05,
         sig2_f=0.5,
-        eta0=64.,
-        rho=0.3,
+        eta0=2.,
+        rho=0.4,
         gamma=1e-4,
         lam_u=1.,
         pop_control='local'

@@ -38,7 +38,7 @@ def evolve_w(w_tar, p, xi):
     """
     w_tar += (
             -p.dt / p.tau_w * (w_tar - p.m_prior) +
-            np.sqrt(2 * p.dt * p.s2_prior / p.tau_w) * xi(p.num_syns)
+            np.sqrt(2 * p.dt * p.s2_prior / p.tau_w) * xi((p.M, p.num_syns))
             )
 
 
@@ -57,8 +57,8 @@ def noise(p, xi):
     tuple : model noise
 
     """
-    return (np.sqrt(2*p.dt*p.sig2_I/p.tau_I)*xi(),
-               np.sqrt(2*p.dt*p.sig2_r/p.tau_r)*xi(),
+    return (np.sqrt(2*p.dt*p.sig2_I/p.tau_I)*xi(p.M),
+               np.sqrt(2*p.dt*p.sig2_r/p.tau_r)*xi(p.M),
                np.sqrt(2*p.dt*p.sig2_y/p.tau_y)*xi())
 
 
@@ -83,7 +83,7 @@ def feedbackC(delta, p, xi):
     return delta + np.sqrt(p.sig2_f/p.dt)*xi(p.M)
 
 
-def feedbackS(delta, p, binom):
+def feedbackS(delta, p, binom, pm=False):
     """
     Generate spike-base error feedback (Poisson process)
 
@@ -101,8 +101,17 @@ def feedbackS(delta, p, binom):
     ndarray : feedback signal for M neurons
 
     """
-    spike_prob = np.min([1e-3*p.dt*p.eta0*np.exp(p.rho*delta).squeeze(), 1.])
-    return binom(1, spike_prob, size=p.M)
+
+    if pm:
+        spike_prob_plus = np.min([1e-3*p.dt*p.eta0*np.exp(p.rho*delta).squeeze(), 1.])
+        spike_prob_minus = np.min([1e-3*p.dt*p.eta0*np.exp(-p.rho*delta).squeeze(), 1.])
+        fb = np.hstack((binom(1, spike_prob_plus, size=p.M//2), binom(1, spike_prob_minus, size=p.M//2)))
+    else:
+
+        spike_prob = np.min([1e-3*p.dt*p.eta0*np.exp(p.rho*delta).squeeze(), 1.])
+        fb = binom(1, spike_prob, size=p.M)
+
+    return fb
 
 
 def weight_init(p):

@@ -326,7 +326,7 @@ class BayesLearnerS:
 
     """
     def __init__(self, p, m, s2):
-        self.p = p
+        self.p = copy.deepcopy(p)
         self.m = m
         self.s2 = s2
         self.dw = np.array(0.)
@@ -348,6 +348,11 @@ class BayesLearnerS:
         self.u_lgd = [np.zeros((3, 1)) for _ in range(int(p.lag/p.dt)+1)]
         self.X = [np.zeros((p.M, p.num_syns)) for _ in range(int(p.lag/p.dt)+1)]
         self.input = np.zeros((3, self.p.num_syns))
+        if p.plus_minus:
+            self.scale_dw = 2.
+        else:
+            self.scale_dw = 1.
+
 
     def update(self, x, f, u=0.):
         """
@@ -404,7 +409,7 @@ class BayesLearnerS:
             if self.p.pop_control == 'global':
                 self.dw = 1/(self.p.M*self.p.num_syns*self.p.nu_bar)*u
             else:
-                self.dw = -1/(self.p.M*self.p.num_syns*self.p.nu_bar)*(
+                self.dw = -self.scale_dw/(self.p.M*self.p.num_syns*self.p.nu_bar)*(
                         self.L@self.d_pred)[0].squeeze()
 
             self.u_lgd.append(-self.B@self.L@self.d_pred)
