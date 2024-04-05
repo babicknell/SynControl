@@ -77,15 +77,18 @@ def feedbackC(delta, p, xi):
 
     Returns
     -------
-    ndarray : feedback signal for M neurons
+    fb : ndarray
+        feedback signal for M neurons
     
     """
-    return delta + np.sqrt(p.sig2_f/p.dt)*xi(p.M)
+    fb = delta + np.sqrt(p.sig2_f / p.dt) * xi(p.M)
+
+    return fb
 
 
-def feedbackS(delta, p, binom, pm=False):
+def feedbackS(delta, p, binom):
     """
-    Generate spike-base error feedback (Poisson process)
+    Generate spike-based error feedback (Poisson process)
 
     Parameters
     ----------
@@ -98,18 +101,12 @@ def feedbackS(delta, p, binom, pm=False):
 
     Returns
     -------
-    ndarray : feedback signal for M neurons
+    fb : ndarray
+        feedback signal for M neurons
 
     """
-
-    if pm:
-        spike_prob_plus = np.min([1e-3*p.dt*p.eta0*np.exp(p.rho*delta).squeeze(), 1.])
-        spike_prob_minus = np.min([1e-3*p.dt*p.eta0*np.exp(-p.rho*delta).squeeze(), 1.])
-        fb = np.hstack((binom(1, spike_prob_plus, size=p.M//2), binom(1, spike_prob_minus, size=p.M//2)))
-    else:
-
-        spike_prob = np.min([1e-3*p.dt*p.eta0*np.exp(p.rho*delta).squeeze(), 1.])
-        fb = binom(1, spike_prob, size=p.M)
+    spike_prob = np.min([1e-3*p.dt*p.eta0*np.exp(p.rho*delta).squeeze(), 1.])
+    fb = binom(1, spike_prob, size=p.M)
 
     return fb
 

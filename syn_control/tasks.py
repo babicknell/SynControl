@@ -93,13 +93,13 @@ class FourierCurve:
         return Y_p
 
     def update_coeffs(self):
-        """ Evolve Fourier coefficients by OU process. """
-        self.A += (-self.p.dt/self.p.tau_w*self.A +
-                   np.sqrt(1/(self.p.Ymodes)*self.p.dt/self.p.tau_w) *
+        """ Evolve Fourier coefficients by OU process (step = 1 period) """
+        self.A += (-self.p.period/self.p.tau_w*self.A +
+                   np.sqrt(1/(self.p.Ymodes)*self.p.period/self.p.tau_w) *
                    self.rng.standard_normal(self.p.Ymodes)
                    )
-        self.B += (-self.p.dt/self.p.tau_w*self.B +
-                   np.sqrt(1/(self.p.Ymodes)*self.p.dt/self.p.tau_w) *
+        self.B += (-self.p.period/self.p.tau_w*self.B +
+                   np.sqrt(1/(self.p.Ymodes)*self.p.period/self.p.tau_w) *
                    self.rng.standard_normal(self.p.Ymodes)
                    )
 

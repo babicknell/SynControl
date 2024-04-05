@@ -13,6 +13,7 @@ Usage:
 import argparse
 import numpy as np
 import pickle
+from matplotlib import pyplot as plt
 
 from syn_control import bayes_learn
 from syn_control import tasks
@@ -36,23 +37,30 @@ parser.add_argument('--gamma', type=float, default=1e-6,
                     help='Learning rate (Classical)')
 parser.add_argument('--lam_u', type=float, default=1.,
                     help='Control cost (Bayes)')
+parser.add_argument('--eta0', type=float, default=2.,
+                    help='Feedback spike rate')
 parser.add_argument('--sw_flag', type=int, default=1,
                     help='Plastic slow weights')
 parser.add_argument('--fw_flag', type=int, default=1,
                     help='Plastic fast weights')
-parser.add_argument('--save', type=bool,
+parser.add_argument('--beta', type=float, default=1.,
+                    help='fast-weight scale factor'
+                         '(only relevant for M>1 and spiking feedback)')
+parser.add_argument('--save', type=int, default=1,
                     help='Save results flag')
-parser.add_argument('--save_steps', type=int, default=1,
+parser.add_argument('--save_steps', type=int, default=10000,
                     help='Time increments for saving weights')
 parser.add_argument('--checkpoint', type=int, default=100000,
                     help='Time increments for checkpointing')
-parser.add_argument('--path', type=str, default='../outputs/',
+parser.add_argument('--path', type=str, default='/home/rmgzbbi/Scratch/SynControl/outputs/',
                     help='Save path')
+# parser.add_argument('--path', type=str, default='../outputs/',
+#                     help='Save path')
 # specific to task 2
 parser.add_argument('--period', type=float, default=1e3,
                     help='Stimulus period (ms)')
 parser.add_argument('--Ymean', type=float, default=20.,
-                    help='Target output mean')
+                    help='Target output mean (a.u.)')
 parser.add_argument('--Ymodes', type=int, default=3,
                     help='Number of target output Fourier modes')
 parser.add_argument('--input_amp', type=float, default=100.,
@@ -69,15 +77,6 @@ parser.add_argument('--max_seed', type=int, default=10,
 args = parser.parse_args()
 assert args.seed <= args.max_seed  # this is here to ensure that random input
 # and output curves do not overlap across seeds (see Rates and targets below)
-
-p = parameters.init_params()
-for name in vars(args).keys():
-    p.__setattr__(name, args.__getattribute__(name))
-
-p.nu_bar = 1e-3*p.frac*p.input_amp*np.sqrt(2*np.pi)*p.input_width/p.period  #
-# average input rate for Gaussian bumps of activity
-p.filename = (f'task2_{p.model}_{p.ftype}_{p.id}_'
-              f'seed{p.seed}')
 
 
 def run(p):
@@ -99,14 +98,13 @@ def run(p):
         #  look for checkpointed file first, otherwise initialize from scratch
         cpt = pickle.load(open(f'{p.path}{p.filename}_checkpoint', 'rb'))
         (
-        p, k, ind, r, I, y, F, X, mli, dw_traj, w_slow_traj,
-        w_var_traj, y_rmse, weights, Rates, targets, rng, xi, binom, fb
+        p, k, ind, r, I, y, F, dw_traj, w_slow_traj,
+        w_var_traj, y_rmse, weights, Rates, targets, rng, xi, binom, fb, sign
         ) = (
              cpt['p'], cpt['k'], cpt['ind'], cpt['r'], cpt['I'], cpt['y'],
-             cpt['F'], cpt['X'], cpt['gloErr'], cpt['dw_traj'],
-             cpt['w_slow_traj'], cpt['w_var_traj'], cpt['y_rmse'],
-             cpt['weights'], cpt['Rates'], cpt['targets'], cpt['rng'],
-             cpt['xi'], cpt['binom'], cpt['fb']
+             cpt['F'], cpt['dw_traj'], cpt['w_slow_traj'], cpt['w_var_traj'],
+             cpt['y_rmse'], cpt['weights'], cpt['Rates'], cpt['targets'], cpt['rng'],
+             cpt['xi'], cpt['binom'], cpt['fb'], cpt['sign']
         )
         w = np.array([wt.w for wt in weights])
 
@@ -122,6 +120,7 @@ def run(p):
         targets = [tasks.FourierCurve(p, np.ravel_multi_index([p.seed, k],
                 (p.max_seed, p.num_patterns))) for k in range(p.num_patterns)]
         _, m, s2 = shared.weight_init(p)
+        sign = np.ones(p.M)
 
         if p.ftype == 'cts':
 
@@ -135,23 +134,17 @@ def run(p):
                 weights = [bayes_learn.ClasLearner(p, m[k]) for k in
                            range(p.M)]
 
-            if p.pop_control == 'global':
-                gloErr = bayes_learn.ErrorEst(p)
-
         elif p.ftype == 'spike':
 
             def fb(delta):
                 return shared.feedbackS(delta, p, binom)
 
             if p.model == 'Bayes':
-                weights = [bayes_learn.BayesLearnerS(p, m[k], s2[k]) for k in
-                           range(p.M)]
+                weights = [bayes_learn.BayesLearnerS(p, m[k], s2[k]) for k
+                               in range(p.M)]
             else:
                 weights = [bayes_learn.ClasLearnerS(p, m[k]) for k in
                            range(p.M)]
-
-            if p.pop_control == 'global':
-                gloErr = bayes_learn.ErrorEstS(p)
 
         else:
             print('unknown feedback type')
@@ -161,48 +154,47 @@ def run(p):
 
         # simulation
         y_rmse = 0.  # will accrue RMS output error
-        dw_traj = []  # fast weight trajectory
-        w_slow_traj = []  # slow weight trajectory
-        w_var_traj = []  # slow weight variance trajectory
+        dw_traj = [np.array([wt.dw for wt in weights])] # fast weight trajectory
+        w_slow_traj = [np.array([wt.m for wt in weights])]  # slow weight trajectory
+        w_var_traj = [np.array([wt.s2 for wt in weights])]  # slow weight variance trajectory
 
         I = np.zeros(p.M)  # total input current
         r = np.zeros(p.M)  # firing rate
         y = np.array([0.])  # output
         f = np.zeros(p.M)  # feedback variable
-        F = [np.zeros(p.M) for _ in range(int(p.lag/p.dt) + 1)]  #buffer for delay
+        F = [np.zeros(p.M) for _ in range(int(p.lag/p.dt) + 1)]  # buffer for delay
         ind = 0  # index for current presented I/O patttern
         k = 1  # time step
+
+    # Y, Y_tar = [], []
 
     while k < (p.n_steps + 1):
         x_k = np.array([binom(1, p.dt * Rates[m][ind].rates) for m in range(p.M)])
         noise = shared.noise(p, xi)
-        shared.evolve_model(w, x_k, I, r, y, p, noise)
+        shared.evolve_model(w, x_k, I, r, y, p, noise=noise)
 
         for m in range(p.M):
             Rates[m][ind].update()  # evolve input rates in time
 
-        for ii in range(p.num_patterns):
-            targets[ii].update_coeffs()   # evolve target outputs in time
-
-        targets[ind].update()
+        targets[ind].update()  # evolve target outputs in time
         if k % (p.period/p.dt) == 0:
             # randomly choose new I/O pattern at each period
             ind = rng.integers(0, p.num_patterns)
+            for ii in range(p.num_patterns):
+                targets[ii].update_coeffs()  # target output drift
 
         F.append(f)
         F.pop(0)
-        if p.pop_control == 'global':
-            gloErr.update(F[0])
-            u_star = gloErr.u
-        else:
-            u_star = 0.
         for ind_m in range(p.M):
-            weights[ind_m].update(x_k[ind_m], F[0][ind_m], u_star)
+            weights[ind_m].update(x_k[ind_m], F[0][ind_m])
 
         y_tar = targets[ind].Y
-        f = fb(y - y_tar)
+        f = fb(y[0] - y_tar)
 
-        y_rmse += (y - y_tar) ** 2
+        # Y.append(y[0].copy())
+        # Y_tar.append(y_tar.copy())
+
+        y_rmse += (y[0] - y_tar) ** 2
         w = np.array([wt.w for wt in weights])
 
         if k % int(p.save_steps / p.dt) == 0:
@@ -212,11 +204,10 @@ def run(p):
 
         if k % int(p.checkpoint / p.dt) == 0:
             cpt = {'p': p, 'k': k + 1, 'ind': ind, 'r': r, 'I': I, 'y': y,
-                   'F': F, 'X': X, 'gloErr': gloErr,
-                   'dw_traj': dw_traj, 'w_slow_traj': w_slow_traj,
+                   'F': F, 'dw_traj': dw_traj, 'w_slow_traj': w_slow_traj,
                    'w_var_traj': w_var_traj, 'y_rmse': y_rmse,
                    'weights': weights, 'Rates': Rates, 'targets': targets,
-                   'rng': rng, 'xi': xi, 'binom': binom, 'fb': fb}
+                   'rng': rng, 'xi': xi, 'binom': binom, 'fb': fb, 'sign': sign}
             pickle.dump(cpt, open(f'{p.path}{p.filename}_checkpoint', 'wb'))
             print(int(p.dt * k))
         k += 1
@@ -233,6 +224,31 @@ def run(p):
 
 
 if __name__ == '__main__':
+
+    p = parameters.init_params()
+
+    if args.lam_u == 0.:
+        args.fw_flag = 0
+        args.lam_u = 0.1
+
+    for name in vars(args).keys():
+        p.__setattr__(name, args.__getattribute__(name))
+
+    p.nu_bar = 1e-3 * p.frac * p.input_amp * np.sqrt(
+        2 * np.pi) * p.input_width / p.period  #
+    # average input rate for Gaussian bumps of activity
+
+    if p.model == 'Classical':
+        lprm = p.gamma
+    else:
+        if p.fw_flag == 1:
+            lprm = p.lam_u
+        else:
+            lprm = 'Inf'
+    p.filename = (
+        f'task2_{p.model}_{p.ftype}_{p.id}_eta{int(p.eta0)}_lag{p.lag}_'
+        f'lprm{lprm}_seed{p.seed}')
+
     results = run(p)
-    if args.save:
+    if p.save:
         pickle.dump(results, open(f'{p.path}{p.filename}', 'wb'))

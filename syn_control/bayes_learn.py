@@ -61,7 +61,7 @@ class BayesLearner:
 
     """
     def __init__(self, p, m, s2):
-        self.p = p
+        self.p = copy.deepcopy(p)
         self.m = m
         self.s2 = s2
         self.dw = np.array(0.)
@@ -82,7 +82,7 @@ class BayesLearner:
         self.X = [np.zeros((p.M, p.num_syns)) for _ in range(int(p.lag/p.dt)+1)]
         self.input = np.zeros((3, p.num_syns))
 
-    def update(self, x, f, u=0.):
+    def update(self, x, f):
         """
         Integrates input and feedback, then updates synaptic weights.
 
@@ -124,12 +124,8 @@ class BayesLearner:
 
         if self.p.fw_flag:
             self.d_pred = self.expA_lag@self.d + self.U
-
-            if self.p.pop_control == 'global':
-                self.dw = 1/(self.p.M*self.p.num_syns*self.p.nu_bar)*u
-            else:
-                self.dw = -1/(self.p.M*self.p.num_syns*self.p.nu_bar)*(
-                        self.L@self.d_pred)[0].squeeze()
+            self.dw = -1/(self.p.M*self.p.num_syns*self.p.nu_bar)*(
+                    self.L@self.d_pred)[0].squeeze()
 
             self.u_lgd.append(-self.B@self.L@self.d_pred)
             self.u_lgd.pop(0)
@@ -195,7 +191,7 @@ class BayesLearnerApprox:
 
     """
     def __init__(self, p, m, s2):
-        self.p = p
+        self.p = copy.deepcopy(p)
         self.m = m
         self.s2 = s2
         self.dw = np.array(0.)
@@ -217,7 +213,7 @@ class BayesLearnerApprox:
         self.X = [np.zeros((p.M, p.num_syns)) for _ in range(int(p.lag/p.dt)+1)]
         self.xr = np.zeros(p.num_syns)
 
-    def update(self, x, f, u=0.):
+    def update(self, x, f):
         """
         Integrates input and feedback, then updates synaptic weights.
 
@@ -348,13 +344,8 @@ class BayesLearnerS:
         self.u_lgd = [np.zeros((3, 1)) for _ in range(int(p.lag/p.dt)+1)]
         self.X = [np.zeros((p.M, p.num_syns)) for _ in range(int(p.lag/p.dt)+1)]
         self.input = np.zeros((3, self.p.num_syns))
-        if p.plus_minus:
-            self.scale_dw = 2.
-        else:
-            self.scale_dw = 1.
 
-
-    def update(self, x, f, u=0.):
+    def update(self, x, f):
         """
         Integrates input and feedback, then updates synaptic weights.
 
@@ -368,13 +359,12 @@ class BayesLearnerS:
             external control variable (zero unless p.pop_control == 'global')
 
         """
-
         self.X.append(x)
         self.X.pop(0)
-        self.input[0] = 1/self.p.tau_I*self.X[0]*self.s2
+        self.input[0] = 1./self.p.tau_I*self.X[0]*self.s2
 
         self.q = min(1e-3*self.p.dt*self.p.eta0*np.exp(self.p.rho*self.d[-1] +
-                    1/2*self.p.rho**2*self.Sig2[-1, -1]), 1 - self.eps)
+                    1/2*self.p.rho**2*self.Sig2[-1, -1]), 1. - self.eps)
 
         self.d += (
                 self.p.dt*(self.p.A@self.d + self.u_lgd[0]) +
@@ -405,12 +395,9 @@ class BayesLearnerS:
 
         if self.p.fw_flag:
             self.d_pred = self.expA_lag@self.d + self.U
-
-            if self.p.pop_control == 'global':
-                self.dw = 1/(self.p.M*self.p.num_syns*self.p.nu_bar)*u
-            else:
-                self.dw = -self.scale_dw/(self.p.M*self.p.num_syns*self.p.nu_bar)*(
-                        self.L@self.d_pred)[0].squeeze()
+            self.dw = -1./((1 + self.p.beta*(self.p.M - 1))*
+                           self.p.num_syns*self.p.nu_bar)*(
+                    self.L@self.d_pred)[0].squeeze()
 
             self.u_lgd.append(-self.B@self.L@self.d_pred)
             self.u_lgd.pop(0)
@@ -418,190 +405,7 @@ class BayesLearnerS:
                     self.p.A@self.U - self.expA_lag@self.u_lgd[0] +
                     self.u_lgd[-1]
                     )
-
         self.w = self.m + self.p.fw_flag*self.dw
-
-
-class ErrorEst:
-    """
-        Error and control estimator (continuous feedback version).
-
-        Parameters
-        ----------
-        p : data class instance
-            model and simulation parameters
-
-        Attributes
-        ----------
-        p : data class instance
-            model and simulation parameters
-        h: ndarray
-            convenience vector for use in plasticity rule
-        sig2_0 : float
-            current noise variance
-        lam : ndarray
-            covariance matrix of error dynamics noise
-        expA_lag : ndarray
-            operator to propagate lagged predicted error forward in time
-        B :  ndarray
-            convenience matrix for computing control gain
-        L : ndarray
-            control gain
-        K : ndarray
-            Kalman gain
-        d : ndarray
-            error estimate
-        d_pred : ndarray
-            error prediction (when propagated to handle delays)
-        U : ndarray
-            leaky integral of past controls
-        u_lgd : list
-            buffer for maintaining lagged control variable
-    """
-    def __init__(self, p):
-        self.p = copy.deepcopy(p)
-
-        self.p.sig2_f /= self.p.M
-        self.h = np.array([0, 0, 1]).reshape(-1, 1)
-        self.p.sig2_0 = (2/p.tau_I**2*p.num_syns*p.s2_prior*p.nu_bar +
-                       2/p.tau_I*p.sig2_I)
-        self.lam = np.diag([p.M*self.p.sig2_0, 2*p.M/p.tau_r*p.sig2_r,
-                            2/p.tau_y*p.sig2_y])
-        self.expA_lag = linalg.expm(p.A*p.lag)
-        _, self.L, self.B = Ricatti_ss(p)
-        _, self.K = Kalman_ss(p, self.lam)
-
-        self.d = np.zeros((3, 1))
-        self.u = 0.
-        self.d_pred = np.zeros((3, 1))
-        self.U = np.zeros((3, 1))
-        self.u_lgd = [np.zeros((3, 1)) for _ in range(int(p.lag/p.dt)+1)]
-
-    def update(self, f):
-        """
-        Integrate conditionally independent feedback signals to estimate
-         output error and compute controller
-
-        Parameters
-        ----------
-        f : ndarray
-            vector of error feedback for M neurons
-        """
-        f = np.mean(f)
-
-        self.d += self.p.dt*(
-                self.p.A@self.d + self.u_lgd[0] +
-                self.K*(f - self.d[-1])
-        )
-
-        self.d_pred = self.expA_lag@self.d + self.U
-        self.u = -(self.L@self.d_pred)[0].squeeze()
-
-        if self.p.fw_flag:
-            self.u_lgd.append(-self.B@self.L@self.d_pred)
-            self.u_lgd.pop(0)
-            self.U += self.p.dt*(
-                    self.p.A@self.U - self.expA_lag@self.u_lgd[0] +
-                    self.u_lgd[-1]
-            )
-
-
-class ErrorEstS:
-    """
-        Error and control estimator (spiking feedback version).
-
-        Parameters
-        ----------
-        p : data class instance
-            model and simulation parameters
-
-        Attributes
-        ----------
-        p : data class instance
-            model and simulation parameters
-        h: ndarray
-            convenience vector for use in plasticity rule
-        sig2_0 : float
-            current noise variance
-        lam : ndarray
-            covariance matrix of error dynamics noise
-        expA_lag : ndarray
-            operator to propagate lagged predicted error forward in time
-        eps : float
-            a small number
-        Sig2 : ndarray
-            error estimate error covariance matrix
-        B :  ndarray
-            convenience matrix for computing control gain
-        L : ndarray
-            control gain
-        q : ndarray
-            estimate of feedback rate
-        d : ndarray
-            error estimate
-        d_pred : ndarray
-            error prediction (when propagated to handle delays)
-        U : ndarray
-            leaky integral of past controls
-        u_lgd : list
-            buffer for maintaining lagged control variable
-    """
-    def __init__(self, p):
-        self.p = copy.deepcopy(p)
-
-        self.h = np.array([0, 0, 1]).reshape(-1, 1)
-        self.p.sig2_0 = (2/p.tau_I**2*p.num_syns*p.s2_prior*p.nu_bar +
-                       2/p.tau_I*p.sig2_I)
-        self.lam = np.diag([p.M*self.p.sig2_0, 2*p.M/p.tau_r*p.sig2_r,
-                            2/p.tau_y*p.sig2_y])
-        self.expA_lag = linalg.expm(p.A*p.lag)
-        self.eps = 1e-16
-
-        self.Sig2 = self.lam.copy()
-        _, self.L, self.B = Ricatti_ss(p)
-
-        self.q = np.array([0.])
-        self.d = np.zeros((3, 1))
-        self.u = 0.
-        self.d_pred = np.zeros((3, 1))
-        self.U = np.zeros((3, 1))
-        self.u_lgd = [np.zeros((3, 1)) for _ in range(int(p.lag/p.dt)+1)]
-
-    def update(self, f):
-        """
-        Integrate conditionally independent feedback signals to estimate
-         output error and compute controller
-
-        Parameters
-        ----------
-        f : ndarray
-            vector of error feedback for M neurons
-        """
-
-        f = min(1., np.sum(f))
-        self.q = min(1e-3*self.p.M*self.p.dt*self.p.eta0*np.exp(self.p.rho*self.d[-1] +
-                     1/2*self.p.rho**2*self.Sig2[-1, -1]), 1 - self.eps)
-
-        self.d += (
-                self.p.dt*(self.p.A@self.d + self.u_lgd[0]) +
-                self.p.rho*self.Sig2@self.h*(f - self.q)
-                   )
-
-        self.Sig2 += (
-                self.p.dt*(self.p.A@self.Sig2 + self.Sig2@self.p.A.T + self.lam) -
-                self.p.rho**2*self.q*self.Sig2@self.h@self.h.T@self.Sig2
-                      )
-
-        self.d_pred = self.expA_lag@self.d + self.U
-        self.u = -(self.L@self.d_pred)[0].squeeze()
-
-        if self.p.fw_flag:
-            self.u_lgd.append(-self.B@self.L@self.d_pred)
-            self.u_lgd.pop(0)
-            self.U += self.p.dt*(
-                self.p.A@self.U - self.expA_lag@self.u_lgd[0] +
-                self.u_lgd[-1]
-                )
 
 
 class ClasLearner:
@@ -651,7 +455,7 @@ class ClasLearner:
 
         self.h = np.array([0, 0, 1]).reshape(-1, 1)
 
-    def update(self, x, f, *args):
+    def update(self, x, f):
         """
         Integrates input and feedback, then updates synaptic weights.
 
@@ -726,7 +530,7 @@ class ClasLearnerS:
         self.h = np.array([0, 0, 1]).reshape(-1, 1)
         self.q0 = self.p.eta0*1e-3*self.p.dt
 
-    def update(self, x, f, *args):
+    def update(self, x, f):
         """
         Integrates input and feedback, then updates synaptic weights.
 

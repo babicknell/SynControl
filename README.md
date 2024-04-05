@@ -17,8 +17,10 @@ outputs: for saving results
 
 Usage
 -----
-Example:
+Install locally by navigating to the SynControl directory and running 
+> pip install -e .
 
+Example:
 To run the teacher-student task with Bayesian control and learning, 
 and continuous error feedback, navigate to 'scripts' and use
 

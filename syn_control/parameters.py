@@ -27,7 +27,6 @@ class Params:
     rho: float
     gamma: float
     lam_u: float
-    pop_control: str
     sig2_0: float = field(init=False)
     n_steps: int = field(init=False)
     A: np.ndarray = field(init=False)
@@ -60,11 +59,10 @@ def init_params():
         sig2_r=0.05,
         sig2_y=0.05,
         sig2_f=0.5,
-        eta0=2.,
+        eta0=64.,
         rho=0.4,
         gamma=1e-4,
         lam_u=1.,
-        pop_control='local'
     )
     return params
 

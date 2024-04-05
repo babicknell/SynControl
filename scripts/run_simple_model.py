@@ -32,8 +32,8 @@ parser.add_argument('--nu_bar', type=float, default=1.,
                     help='Average input rate')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate')
-parser.add_argument('--save', type=bool, default=False,
-                    help='Save results flag')
+parser.add_argument('--save', type=int, default=0,
+                    help='Save results flag (0 or 1')
 parser.add_argument('--save_steps', type=int, default=1,
                     help='Time increments for saving weights')
 parser.add_argument('--path', type=str, default='../outputs/',
