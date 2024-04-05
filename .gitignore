@@ -1,7 +1,7 @@
-./outputs/
 __pycache__/
-./syn_control/__pycache__/
+syn_control/__pycache__/
 .idea/
 .DS_Store
-./scripts/process.py
-./scripts/plot_task1_spike.py
+outputs_local/
+scripts/process.py
+scripts/plot_task1_spike.py
