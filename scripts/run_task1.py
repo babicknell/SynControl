@@ -50,10 +50,8 @@ parser.add_argument('--save', type=int, default=1,
                     help='Save results flag')
 parser.add_argument('--save_steps', type=int, default=10000,
                     help='Time increments for saving weights')
-parser.add_argument('--path', type=str, default='/home/rmgzbbi/Scratch/SynControl/outputs/',
-                    help='Save path')
-# parser.add_argument('--path', type=str, default='../outputs/',
-#                     help='Save path')
+parser.add_argument('--path', type=str, default='../outputs/',
+                     help='Save path')
 
 args = parser.parse_args()
 
