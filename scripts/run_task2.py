@@ -52,10 +52,8 @@ parser.add_argument('--save_steps', type=int, default=10000,
                     help='Time increments for saving weights')
 parser.add_argument('--checkpoint', type=int, default=100000,
                     help='Time increments for checkpointing')
-parser.add_argument('--path', type=str, default='/home/rmgzbbi/Scratch/SynControl/outputs/',
+parser.add_argument('--path', type=str, default='../outputs/',
                     help='Save path')
-# parser.add_argument('--path', type=str, default='../outputs/',
-#                     help='Save path')
 # specific to task 2
 parser.add_argument('--period', type=float, default=1e3,
                     help='Stimulus period (ms)')
