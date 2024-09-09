@@ -78,8 +78,7 @@ def run(p):
 
     task = tasks.ConstRates(p)
     w_tar, m, s2 = shared.weight_init(p)
-    sign = np.ones(p.M)
-    # m = 0.5*w_tar + 0.5*m
+
     if p.ftype == 'cts':
 
         def fb(delta):
