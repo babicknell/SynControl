@@ -1,7 +1,8 @@
 # SynControl
 
 Code associated with the manuscript "Bicknell B. A. & Latham P. E., (2024). Fast 
-and slow synaptic plasticity enables concurrent control and learning".
+and slow synaptic plasticity enables concurrent control and learning".\
+https://www.biorxiv.org/content/10.1101/2024.09.06.611710v1.full
 
 Requirements
 -----------------
